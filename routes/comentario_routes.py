@@ -85,22 +85,22 @@ def crear_comentario(id_publicacion):
         conn.close()
 
 
-# 3) Eliminar un comentario (solo si eres administrador)
+# 3) Eliminar un comentario (solo si eres el autor o un administrador)
 @comentario_bp.route('/comentarios/<int:id_comentario>', methods=['DELETE'])
 @jwt_required
 def eliminar_comentario(id_comentario):
-    # Solo admins pueden eliminar comentarios
-    if request.user['rol'] != 'admin':
-        return jsonify({"msg": "No autorizado"}), 403
-
     conn = get_connection()
     cursor = conn.cursor()
     try:
         # Verificamos que el comentario exista
-        cursor.execute("SELECT id FROM Comentario WHERE id = %s", (id_comentario,))
+        cursor.execute("SELECT id, id_usuario FROM Comentario WHERE id = %s", (id_comentario,))
         comentario = cursor.fetchone()
         if not comentario:
             return jsonify({"msg": "Comentario no encontrado"}), 404
+
+        # Comprobamos si el usuario es el autor del comentario o un administrador
+        if comentario[1] != request.user['id'] and request.user['rol'] != 'admin':
+            return jsonify({"msg": "No autorizado"}), 403
 
         # Eliminamos el comentario
         cursor.execute("DELETE FROM Comentario WHERE id = %s", (id_comentario,))
@@ -113,3 +113,4 @@ def eliminar_comentario(id_comentario):
     finally:
         cursor.close()
         conn.close()
+
