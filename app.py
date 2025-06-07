@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 from config import Config
+from flask_swagger_ui import get_swaggerui_blueprint
 
 from routes.auth_routes import auth_bp            # Blueprint de autenticación
 from routes.user_routes import user_bp            # Blueprint de usuario
@@ -20,6 +21,21 @@ app.register_blueprint(subcategoria_bp, url_prefix="/api")    # Rutas de subcate
 app.register_blueprint(publicacion_bp, url_prefix="/api")     # Rutas de publicaciones
 app.register_blueprint(etiqueta_bp, url_prefix="/api")        # Rutas de etiquetas
 app.register_blueprint(comentario_bp, url_prefix="/api")      # Rutas de comentarios
+
+# 1) Ruta donde se mostrará Swagger UI
+SWAGGER_URL = '/api/documentacion'
+# 2) Ruta al fichero openapi.yaml (servido desde /static)
+API_URL = '/static/openapi.yaml'
+
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={  # opcionalmente personalizas el UI
+        'app_name': "ArtCenter API Docs"
+    }
+)
+# Registramos el blueprint; queda en /api/documentacion(/)
+app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
 # Manejador global para errores 500 (errores del servidor)
 @app.errorhandler(500)
