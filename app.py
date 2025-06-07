@@ -24,13 +24,13 @@ app.register_blueprint(comentario_bp, url_prefix="/api")      # Rutas de comenta
 
 # 1) Ruta donde se mostrará Swagger UI
 SWAGGER_URL = '/api/documentacion'
-# 2) Ruta al fichero openapi.yaml (servido desde /static)
+# 2) Ruta al fichero openapi.yaml
 API_URL = '/static/openapi.yaml'
 
 swaggerui_blueprint = get_swaggerui_blueprint(
     SWAGGER_URL,
     API_URL,
-    config={  # opcionalmente personalizas el UI
+    config={
         'app_name': "ArtCenter API Docs"
     }
 )
