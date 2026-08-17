@@ -1,7 +1,7 @@
-# Variables de entorno
+# Environment variables
 .env
 
-# Entorno virtual
+# Virtual environment
 venv/
 .venv/
 
@@ -10,6 +10,6 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 
-# Editores
+# Editors
 .vscode/
 .idea/
