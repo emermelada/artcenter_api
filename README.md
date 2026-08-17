@@ -1,184 +1,186 @@
 # ArtCenter API
 
-API REST que da servicio a **ArtCenter**, una aplicación Android sobre disciplinas artísticas que combina contenido educativo organizado por categorías y subcategorías con una red social donde los usuarios comparten sus obras.
+REST API powering **ArtCenter**, an Android app about art disciplines that combines educational content organised into categories and subcategories with a social feed where users share their own work.
 
-Este repositorio contiene únicamente el backend. La aplicación Android está en **[emermelada/ArtCenter](https://github.com/emermelada/ArtCenter)**.
+This repository holds the backend only. The Android app lives at **[emermelada/ArtCenter](https://github.com/emermelada/ArtCenter)**.
 
-Proyecto de fin de ciclo del Grado Superior de Desarrollo de Aplicaciones Multiplataforma (U-tad, convocatoria de junio de 2025).
+Final project for the Higher Vocational Degree in Cross-Platform Application Development (U-tad, June 2025).
 
 ---
 
 ## Stack
 
-| Componente | Tecnología |
+| Component | Technology |
 |---|---|
-| Lenguaje | Python 3.11 |
+| Language | Python 3.11 |
 | Framework | Flask 3.1 (blueprints) |
-| Base de datos | MySQL 8.0, acceso con PyMySQL y SQL directo |
-| Autenticación | JWT (PyJWT, HS256) con decorador propio |
-| Contraseñas | Hash con Werkzeug (`pbkdf2:sha256`) |
-| Almacenamiento de imágenes | Cloudinary |
-| Documentación | OpenAPI 3 servida con Swagger UI en `/api/documentacion` |
+| Database | MySQL 8.0, accessed with PyMySQL and hand-written SQL |
+| Authentication | JWT (PyJWT, HS256) with a custom decorator |
+| Passwords | Hashed with Werkzeug (`pbkdf2:sha256`) |
+| Image storage | Cloudinary |
+| Documentation | OpenAPI 3 served through Swagger UI at `/api/documentacion` |
 
-No se usa ORM: las consultas son SQL escrito a mano sobre PyMySQL.
+No ORM is used: every query is SQL written by hand on top of PyMySQL.
 
 ---
 
-## Funcionalidades
+## Features
 
-**Autenticación y roles.** Registro y login sobre email único. El login determina el rol consultando si la cuenta existe en la tabla `Administrador`, y ese rol viaja dentro del token. Todos los endpoints salvo registro y login exigen `Authorization: Bearer <token>`.
+**Authentication and roles.** Sign-up and login on a unique email. Login resolves the role by checking whether the account exists in the `Administrador` table, and that role travels inside the token. Every endpoint except register and login requires `Authorization: Bearer <token>`.
 
-- Los **administradores** gestionan el contenido educativo: crear, editar y eliminar categorías y subcategorías. También pueden eliminar cualquier publicación o comentario.
-- Los **usuarios** publican obra, comentan, dan like y guardan. Un administrador no puede publicar (la API responde 403): su rol es de gestión, no de participación en el feed.
+- **Administrators** manage the educational content: create, edit and delete categories and subcategories. They can also delete any post or comment.
+- **Users** publish work, comment, like and save. An administrator cannot publish (the API returns 403): the role is about curation, not participation in the feed.
 
-**Feed paginado.** Listados de 20 en 20 mediante `LIMIT`/`OFFSET`, con `page` en base 0. Aplica al feed general, a las publicaciones propias, a las guardadas y a la búsqueda.
+**Paginated feed.** Listings of 20 items via `LIMIT`/`OFFSET`, with a zero-based `page` parameter. Applies to the main feed, own posts, saved posts and search.
 
-**Publicaciones.** Subida de imagen a Cloudinary y persistencia de la URL resultante. Cada publicación puede llevar una etiqueta asociada que la vincula a una categoría o subcategoría.
+**Posts.** The image is uploaded to Cloudinary and only the resulting URL is stored. Each post can carry a tag linking it to a category or subcategory.
 
-**Etiquetas.** Se generan solas: dos triggers de MySQL crean la etiqueta correspondiente al insertar una categoría o una subcategoría, de forma que el catálogo de etiquetas nunca se desincroniza del de contenidos.
+**Tags.** They generate themselves: two MySQL triggers create the matching tag whenever a category or subcategory is inserted, so the tag catalogue can never drift out of sync with the content.
 
-**Likes y guardados.** Ambos funcionan como interruptor sobre el mismo endpoint: la primera llamada añade, la segunda retira. El contador `likes` de cada publicación lo mantienen dos triggers en la base de datos.
+**Likes and saves.** Both behave as a switch on the same endpoint: the first call adds, the second removes. The `likes` counter on each post is maintained by two database triggers.
 
-**Comentarios.** Listado y creación por publicación. Cada usuario puede borrar los suyos; un administrador puede borrar cualquiera.
+**Comments.** Listing and creation per post. Users can delete their own; administrators can delete any.
 
-**Búsqueda.** Un único término libre que se compara contra el nombre de la categoría, el de la subcategoría, la descripción de la publicación, el nombre de usuario y el email del autor.
+**Search.** A single free-text term matched against the category name, the subcategory name, the post description, the author's username and their email.
 
 ---
 
 ## Endpoints
 
-Todas las rutas cuelgan de `/api`. La columna *Acceso* indica qué hace falta además de un token válido.
+Every route is mounted under `/api`. The *Access* column states what is required beyond a valid token.
 
-### Autenticación
+### Authentication
 
-| Método | Ruta | Acceso | Descripción |
+| Method | Route | Access | Description |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | Público | Crea cuenta y usuario. Body: `email`, `contrasena`, `username` |
-| `POST` | `/api/auth/login` | Público | Devuelve el JWT y el rol |
+| `POST` | `/api/auth/register` | Public | Creates account and user. Body: `email`, `contrasena`, `username` |
+| `POST` | `/api/auth/login` | Public | Returns the JWT and the role |
 
-### Usuario
+### User
 
-| Método | Ruta | Acceso | Descripción |
+| Method | Route | Access | Description |
 |---|---|---|---|
-| `GET` | `/api/user` | Token | Datos del usuario autenticado |
-| `PUT` | `/api/user/username` | Token | Cambia el nombre de usuario |
-| `PUT` | `/api/user/profile-picture` | Token | Sube la foto de perfil a Cloudinary (`multipart/form-data`) |
+| `GET` | `/api/user` | Token | Authenticated user's details |
+| `PUT` | `/api/user/username` | Token | Changes the username |
+| `PUT` | `/api/user/profile-picture` | Token | Uploads the profile picture to Cloudinary (`multipart/form-data`) |
 
-### Categorías
+### Categories
 
-| Método | Ruta | Acceso | Descripción |
+| Method | Route | Access | Description |
 |---|---|---|---|
-| `GET` | `/api/categorias` | Token | Listado de categorías |
-| `GET` | `/api/categorias/{id}` | Token | Detalle de una categoría |
-| `POST` | `/api/categorias` | Admin | Crea categoría. Body: `nombre`, `descripcion` |
-| `PUT` | `/api/categorias/{id}` | Admin | Edita categoría |
-| `DELETE` | `/api/categorias/{id}` | Admin | Elimina categoría |
+| `GET` | `/api/categorias` | Token | List categories |
+| `GET` | `/api/categorias/{id}` | Token | Category detail |
+| `POST` | `/api/categorias` | Admin | Create category. Body: `nombre`, `descripcion` |
+| `PUT` | `/api/categorias/{id}` | Admin | Edit category |
+| `DELETE` | `/api/categorias/{id}` | Admin | Delete category |
 
-### Subcategorías
+### Subcategories
 
-| Método | Ruta | Acceso | Descripción |
+| Method | Route | Access | Description |
 |---|---|---|---|
-| `GET` | `/api/subcategorias` | Token | Listado completo |
-| `GET` | `/api/subcategorias/categoria/{id_categoria}` | Token | Subcategorías de una categoría |
-| `GET` | `/api/subcategorias/{id_categoria}/{id_subcategoria}` | Token | Detalle: historia, características, requerimientos y tutoriales |
-| `POST` | `/api/subcategorias` | Admin | Crea subcategoría |
-| `PUT` | `/api/subcategorias/{id_categoria}/{id_subcategoria}` | Admin | Edita subcategoría |
-| `DELETE` | `/api/subcategorias/{id_categoria}/{id_subcategoria}` | Admin | Elimina subcategoría |
+| `GET` | `/api/subcategorias` | Token | Full listing |
+| `GET` | `/api/subcategorias/categoria/{id_categoria}` | Token | Subcategories of a category |
+| `GET` | `/api/subcategorias/{id_categoria}/{id_subcategoria}` | Token | Detail: history, characteristics, requirements and tutorials |
+| `POST` | `/api/subcategorias` | Admin | Create subcategory |
+| `PUT` | `/api/subcategorias/{id_categoria}/{id_subcategoria}` | Admin | Edit subcategory |
+| `DELETE` | `/api/subcategorias/{id_categoria}/{id_subcategoria}` | Admin | Delete subcategory |
 
-### Etiquetas
+### Tags
 
-| Método | Ruta | Acceso | Descripción |
+| Method | Route | Access | Description |
 |---|---|---|---|
-| `GET` | `/api/etiquetas` | Token | Listado de etiquetas disponibles |
+| `GET` | `/api/etiquetas` | Token | List available tags |
 
-### Publicaciones
+### Posts
 
-| Método | Ruta | Acceso | Descripción |
+| Method | Route | Access | Description |
 |---|---|---|---|
-| `GET` | `/api/publicaciones?page=0` | Token | Feed paginado, 20 por página |
-| `GET` | `/api/publicaciones/mias?page=0` | Token | Publicaciones propias |
-| `GET` | `/api/publicaciones/guardadas?page=0` | Token | Publicaciones guardadas |
-| `GET` | `/api/publicaciones/buscar?q=&page=0` | Token | Búsqueda por término libre |
-| `GET` | `/api/publicaciones/{id}` | Token | Detalle con likes y estado del usuario |
-| `POST` | `/api/publicaciones` | Token (no admin) | Crea publicación. `multipart/form-data`: `file`, `descripcion`, `id_etiqueta` |
-| `POST` | `/api/publicaciones/{id}/like` | Token | Alterna el like |
-| `POST` | `/api/publicaciones/{id}/guardar` | Token | Alterna el guardado |
-| `DELETE` | `/api/publicaciones/{id}` | Autor o admin | Elimina publicación |
+| `GET` | `/api/publicaciones?page=0` | Token | Paginated feed, 20 per page |
+| `GET` | `/api/publicaciones/mias?page=0` | Token | Own posts |
+| `GET` | `/api/publicaciones/guardadas?page=0` | Token | Saved posts |
+| `GET` | `/api/publicaciones/buscar?q=&page=0` | Token | Free-text search |
+| `GET` | `/api/publicaciones/{id}` | Token | Detail with likes and the caller's state |
+| `POST` | `/api/publicaciones` | Token (non-admin) | Create post. `multipart/form-data`: `file`, `descripcion`, `id_etiqueta` |
+| `POST` | `/api/publicaciones/{id}/like` | Token | Toggles the like |
+| `POST` | `/api/publicaciones/{id}/guardar` | Token | Toggles the save |
+| `DELETE` | `/api/publicaciones/{id}` | Author or admin | Delete post |
 
-### Comentarios
+### Comments
 
-| Método | Ruta | Acceso | Descripción |
+| Method | Route | Access | Description |
 |---|---|---|---|
-| `GET` | `/api/publicaciones/{id_publicacion}/comentarios` | Token | Comentarios de una publicación |
-| `POST` | `/api/publicaciones/{id_publicacion}/comentarios` | Token | Crea comentario. Body: `contenido` |
-| `DELETE` | `/api/comentarios/{id_comentario}` | Autor o admin | Elimina comentario |
+| `GET` | `/api/publicaciones/{id_publicacion}/comentarios` | Token | Comments on a post |
+| `POST` | `/api/publicaciones/{id_publicacion}/comentarios` | Token | Create comment. Body: `contenido` |
+| `DELETE` | `/api/comentarios/{id_comentario}` | Author or admin | Delete comment |
 
-La documentación OpenAPI de los principales endpoints está disponible en `/api/documentacion` con la aplicación levantada.
+OpenAPI documentation for the main endpoints is available at `/api/documentacion` once the app is running.
+
+Route paths, request fields and database identifiers are in Spanish, matching the Android client that consumes this API.
 
 ---
 
-## Modelo de datos
+## Data model
 
 ```mermaid
 erDiagram
-    Cuenta ||--o| Usuario : "es"
-    Cuenta ||--o| Administrador : "es"
-    Categoria ||--o{ Subcategoria : "contiene"
-    Categoria ||--o{ Etiqueta : "genera"
-    Subcategoria ||--o{ Etiqueta : "genera"
-    Usuario ||--o{ Publicacion : "publica"
-    Etiqueta ||--o{ Publicacion : "clasifica"
-    Usuario ||--o{ Comentario : "escribe"
-    Publicacion ||--o{ Comentario : "recibe"
-    Usuario }o--o{ Publicacion : "da like"
-    Usuario }o--o{ Publicacion : "guarda"
+    Cuenta ||--o| Usuario : "is a"
+    Cuenta ||--o| Administrador : "is a"
+    Categoria ||--o{ Subcategoria : "contains"
+    Categoria ||--o{ Etiqueta : "generates"
+    Subcategoria ||--o{ Etiqueta : "generates"
+    Usuario ||--o{ Publicacion : "publishes"
+    Etiqueta ||--o{ Publicacion : "classifies"
+    Usuario ||--o{ Comentario : "writes"
+    Publicacion ||--o{ Comentario : "receives"
+    Usuario }o--o{ Publicacion : "likes"
+    Usuario }o--o{ Publicacion : "saves"
 ```
 
-`Cuenta` guarda las credenciales (email único y hash de contraseña) y es la raíz de la jerarquía. `Usuario` y `Administrador` comparten clave primaria con ella mediante clave ajena: el rol no es una columna, es la tabla en la que existe el registro.
+`Cuenta` holds the credentials (unique email and password hash) and is the root of the hierarchy. `Usuario` and `Administrador` share its primary key through a foreign key: the role is not a column, it is whichever table the record lives in.
 
-`Categoria` agrupa disciplinas artísticas y se divide en `Subcategoria`, que usa clave primaria compuesta (`id_categoria`, `id_subcategoria`) y almacena el contenido educativo: historia, características, requerimientos y tutoriales.
+`Categoria` groups art disciplines and breaks down into `Subcategoria`, which uses a composite primary key (`id_categoria`, `id_subcategoria`) and stores the educational content: history, characteristics, requirements and tutorials.
 
-`Etiqueta` es la pieza que conecta la parte educativa con la social. Cuelga de una categoría y opcionalmente de una subcategoría, y se crea automáticamente por trigger cuando se inserta cualquiera de las dos. Una publicación etiquetada queda así vinculada al contenido educativo correspondiente.
+`Etiqueta` is the piece connecting the educational side to the social one. It hangs off a category and optionally a subcategory, and is created automatically by a trigger whenever either is inserted. A tagged post is therefore tied to its corresponding educational content.
 
-`Publicacion` guarda la URL de la imagen en Cloudinary, la descripción, la etiqueta y un contador de likes denormalizado que mantienen los triggers. `Comentario` cuelga de publicación y usuario.
+`Publicacion` stores the Cloudinary image URL, the description, the tag and a denormalised like counter kept up to date by triggers. `Comentario` hangs off a post and a user.
 
-Las relaciones N:M se resuelven en tablas propias: `Usuario_Da_Like` y `Usuario_Guarda_Publicacion` para la interacción con el feed, más `Usuario_Guarda_Categoria` y `Usuario_Guarda_Subcategoria`, previstas en el diseño para guardar contenido educativo pero sin endpoints en esta versión.
+Many-to-many relationships live in their own tables: `Usuario_Da_Like` and `Usuario_Guarda_Publicacion` for feed interaction, plus `Usuario_Guarda_Categoria` and `Usuario_Guarda_Subcategoria`, which the design anticipated for bookmarking educational content but which have no endpoints in this version.
 
-El esquema completo, con restricciones `CHECK`, claves ajenas y triggers, está en [`ScriptArtCenterDB.sql`](ScriptArtCenterDB.sql).
+The full schema, with `CHECK` constraints, foreign keys and triggers, is in [`ScriptArtCenterDB.sql`](ScriptArtCenterDB.sql).
 
 ---
 
-## Puesta en marcha
+## Getting started
 
-### Requisitos
+### Requirements
 
 - Python 3.11
 - MySQL 8.0
-- Una cuenta de Cloudinary
+- A Cloudinary account
 
-### 1. Clonar e instalar dependencias
+### 1. Clone and install dependencies
 
 ```bash
 git clone https://github.com/emermelada/artcenter_api.git
 cd artcenter_api
 
 python -m venv venv
-venv\Scripts\activate        # En Linux/macOS: source venv/bin/activate
+venv\Scripts\activate        # On Linux/macOS: source venv/bin/activate
 
 pip install -r requirements.txt
 ```
 
-### 2. Crear la base de datos
+### 2. Create the database
 
 ```bash
 mysql -u root -p < ScriptArtCenterDB.sql
 ```
 
-El script crea la base `artcenterDB`, todas las tablas y los cuatro triggers.
+The script creates the `artcenterDB` database, every table and the four triggers.
 
-### 3. Configurar las variables de entorno
+### 3. Set the environment variables
 
-Copia `.env.example` a `.env` y rellena los valores:
+Copy `.env.example` to `.env` and fill in the values:
 
 ```
 SECRET_KEY=
@@ -194,48 +196,48 @@ CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
 ```
 
-Las tres credenciales de Cloudinary están en el panel de tu cuenta. `config.py` las lee y configura el SDK al arrancar.
+The three Cloudinary credentials are in your account dashboard. `config.py` reads them and configures the SDK at startup.
 
-`.env` está excluido del control de versiones y no debe subirse nunca al repositorio.
+`.env` is excluded from version control and must never be committed.
 
-### 4. Arrancar el servidor
+### 4. Run the server
 
 ```bash
 python app.py
 ```
 
-En Windows también sirve `run.bat`, que activa el entorno virtual y lanza `flask run`.
+On Windows `run.bat` also works: it activates the virtual environment and runs `flask run`.
 
-La API queda en `http://localhost:5000` y la documentación Swagger en **`http://localhost:5000/api/documentacion`**.
+The API listens on `http://localhost:5000` and the Swagger docs are at **`http://localhost:5000/api/documentacion`**.
 
-### 5. Crear un administrador
+### 5. Create an administrator
 
-No hay endpoint de registro de administradores: se insertan a mano. Genera el hash de la contraseña con `routes/admin.py`, inserta la fila en `Cuenta` y añade su `id` a la tabla `Administrador`.
-
----
-
-## Decisiones técnicas
-
-**El backend empezó en AWS y acabó en Flask.** El planteamiento inicial era API Gateway con funciones Lambda y la base de datos en RDS. Al pasar a las pruebas la integración no terminó de funcionar y mantenerla estaba costando más tiempo del que el proyecto tenía. Rehacerlo como una API Flask monolítica fue la decisión correcta para el alcance real: un backend que un solo desarrollador tiene que poder levantar, depurar y modificar en paralelo a la app Android.
-
-**JWT en lugar de sesiones de servidor.** El cliente es una app Android, no un navegador: no hay cookies ni estado de sesión que aprovechar. Un token firmado que la app guarda y envía en cada petición encaja mejor y deja la API sin estado. Además, meter el rol dentro del token evita una consulta a base de datos en cada petición solo para saber si quien llama es administrador.
-
-**Cloudinary en vez de guardar ficheros en disco.** Esto no estaba en el diseño inicial. Apareció desarrollando la app, cuando me di cuenta de que no tenía dónde poner las imágenes que subieran los usuarios. Guardarlas en el sistema de ficheros del servidor obligaba a resolver por mi cuenta el servirlas, el respaldo y el crecimiento del disco, y ataba la API a una máquina concreta. Cloudinary devuelve una URL al subir, así que en la base de datos solo se guarda esa cadena: la API deja de gestionar binarios y la app Android carga las imágenes directamente desde un CDN.
-
-**Paginación del feed y estado en la misma consulta.** El feed carga de 20 en 20 con `LIMIT`/`OFFSET` conforme el usuario desliza. La parte que más me enseñó fue evitar el problema obvio: cada publicación necesita saber si el usuario que la está viendo le ha dado like y si la tiene guardada, y consultarlo publicación a publicación son 40 consultas extra por página. Se resuelve con dos `LEFT JOIN` sobre las tablas de relación filtrando ya por el id del usuario del token, y comprobando si la fila resultante es nula. Una sola consulta devuelve la página entera con sus banderas `liked` y `saved`.
-
-**Los contadores y las etiquetas los mantiene la base de datos.** El número de likes y la creación de etiquetas al dar de alta categorías y subcategorías están resueltos con triggers. Es lógica que no puede quedar a medias ni depender de que ninguna ruta se olvide de ejecutarla.
+There is no sign-up endpoint for administrators; they are inserted by hand. Generate the password hash with `routes/admin.py`, insert the row into `Cuenta` and add its `id` to the `Administrador` table.
 
 ---
 
-## Estado del proyecto
+## Technical decisions
 
-Funcional en local y en uso por la aplicación Android. **El despliegue está pendiente**: la intención es autohospedarlo sobre Gunicorn y Nginx en un servidor propio con Arch Linux, en lugar de volver a un proveedor gestionado.
+**The backend started on AWS and ended up on Flask.** The original plan was API Gateway with Lambda functions and the database on RDS. Once it reached testing the integration never quite worked, and keeping it alive was costing more time than the project had. Rebuilding it as a monolithic Flask API was the right call for the actual scope: a backend that a single developer has to be able to run, debug and change alongside the Android app.
 
-Quedan fuera de esta versión los filtros de búsqueda avanzados y el guardado de categorías y subcategorías, ambos contemplados en el diseño y con soporte ya en el esquema de base de datos.
+**JWT instead of server-side sessions.** The client is an Android app, not a browser: there are no cookies or session state to lean on. A signed token the app stores and sends with every request fits better and keeps the API stateless. Putting the role inside the token also avoids a database round trip on every request just to find out whether the caller is an administrator.
+
+**Cloudinary rather than files on disk.** This was not in the original design. It came up during development, when I realised I had nowhere to put the images users uploaded. Keeping them on the server filesystem meant solving serving, backups and disk growth myself, and tied the API to one specific machine. Cloudinary returns a URL on upload, so the database stores nothing but that string: the API stops handling binaries and the Android app loads images straight from a CDN.
+
+**Feed pagination and per-user state in a single query.** The feed loads 20 posts at a time with `LIMIT`/`OFFSET` as the user scrolls. The part I learned the most from was avoiding the obvious trap: every post needs to know whether the current viewer has liked it and whether they have saved it, and checking that post by post is 40 extra queries per page. The fix is two `LEFT JOIN`s against the relationship tables, already filtered by the user id from the token, then testing whether the resulting row is null. One query returns the whole page with its `liked` and `saved` flags.
+
+**Counters and tags are the database's job.** The like count and the creation of tags when categories and subcategories are added are handled by triggers. That is logic which cannot be left half-applied or depend on some route remembering to run it.
 
 ---
 
-## Licencia
+## Project status
 
-[MIT](LICENSE). Uso libre.
+Working locally and in use by the Android app. **Deployment is pending**: the plan is to self-host it behind Gunicorn and Nginx on my own Arch Linux server rather than going back to a managed provider.
+
+Left out of this version are advanced search filters and bookmarking of categories and subcategories, both part of the design and already supported by the database schema.
+
+---
+
+## License
+
+[MIT](LICENSE). Free to use.
