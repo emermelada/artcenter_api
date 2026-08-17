@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+import cloudinary
 import os
 
 # Cargar las variables de entorno desde el archivo .env
@@ -16,6 +17,14 @@ class Config:
     CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
     CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
     CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+
+# Configuramos el SDK de Cloudinary con las credenciales del .env
+cloudinary.config(
+    cloud_name=Config.CLOUDINARY_CLOUD_NAME,
+    api_key=Config.CLOUDINARY_API_KEY,
+    api_secret=Config.CLOUDINARY_API_SECRET,
+    secure=True
+)
 
 # Exportamos la clave JWT directamente
 jwt_secret = Config.JWT_SECRET_KEY

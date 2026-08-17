@@ -192,10 +192,9 @@ MYSQL_DB=
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_API_KEY=
 CLOUDINARY_API_SECRET=
-CLOUDINARY_URL=
 ```
 
-`CLOUDINARY_URL` tiene el formato `cloudinary://<api_key>:<api_secret>@<cloud_name>` y es la que lee el SDK de Cloudinary para autenticarse.
+Las tres credenciales de Cloudinary están en el panel de tu cuenta. `config.py` las lee y configura el SDK al arrancar.
 
 `.env` está excluido del control de versiones y no debe subirse nunca al repositorio.
 
